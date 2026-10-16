@@ -85,11 +85,23 @@ Write-Host "複製檔案到 $InstallDir ..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Copy-Item -Path (Join-Path $PublishDir '*') -Destination $InstallDir -Recurse -Force
 
-# 3. 資料夾與權限:關閉繼承,避免一般使用者放入假的設定檔或竄改資料庫
-New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
+# 3. 資料夾與權限:關閉繼承,避免一般使用者放入假的設定檔或竄改資料庫。
+#    %ProgramData% 預設允許一般使用者建立資料夾,因此資料夾若事先存在,必須拒絕連結並奪回擁有權
+#    (擁有者即使不在 ACL 中仍可修改權限)。
+if (Test-Path -LiteralPath $DataDir) {
+    $reparse = @(Get-Item -LiteralPath $DataDir -Force) + @(Get-ChildItem -LiteralPath $DataDir -Recurse -Force -Attributes ReparsePoint -ErrorAction SilentlyContinue)
+    $links = $reparse | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }
+    if ($links) {
+        throw "$DataDir 含有連結(junction/symlink):$($links.FullName -join ', ')。為安全起見停止安裝,請確認後手動移除。"
+    }
+} else {
+    New-Item -ItemType Directory -Path $DataDir | Out-Null
+}
+Invoke-Native icacls @($DataDir, '/setowner', $AdministratorsSid, '/T', '/C', '/Q')
+Invoke-Native icacls @($DataDir, '/reset', '/T', '/C', '/Q')
 Invoke-Native icacls @($DataDir, '/inheritance:r', '/grant:r',
-    "${SystemSid}:(OI)(CI)F", "${AdministratorsSid}:(OI)(CI)F", "${LocalServiceSid}:(OI)(CI)M", '/T', '/C', '/Q')
-Write-Host "已設定 $DataDir 權限(SYSTEM、Administrators 完全控制;LocalService 修改)"
+    "${SystemSid}:(OI)(CI)F", "${AdministratorsSid}:(OI)(CI)F", "${LocalServiceSid}:(OI)(CI)M", '/C', '/Q')
+Write-Host "已設定 $DataDir 權限(擁有者 Administrators;SYSTEM、Administrators 完全控制;LocalService 修改)"
 
 # 4. 設定檔
 $configPath = Join-Path $DataDir 'appsettings.json'

@@ -24,6 +24,29 @@ Set-StrictMode -Version Latest
 $ServiceName = 'CertSentinel'
 $DataDir = Join-Path $env:ProgramData 'CertSentinel'
 
+# Windows PowerShell 5.1 的 Remove-Item -Recurse 會跟隨 junction 刪除目標內容;
+# 這裡自行遞迴,遇到連結(reparse point)只刪除連結本身,不進入。
+function Remove-TreeWithoutFollowingLinks {
+    param([Parameter(Mandatory)] [string] $Path)
+
+    $item = Get-Item -LiteralPath $Path -Force
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        if ($item.PSIsContainer) { [IO.Directory]::Delete($item.FullName, $false) } else { [IO.File]::Delete($item.FullName) }
+        return
+    }
+
+    if ($item.PSIsContainer) {
+        foreach ($child in Get-ChildItem -LiteralPath $item.FullName -Force) {
+            Remove-TreeWithoutFollowingLinks -Path $child.FullName
+        }
+
+        [IO.Directory]::Delete($item.FullName, $false)
+    } else {
+        $item.Attributes = [IO.FileAttributes]::Normal
+        [IO.File]::Delete($item.FullName)
+    }
+}
+
 $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($service) {
     if ($service.Status -ne 'Stopped') {
@@ -47,7 +70,7 @@ if ([System.Diagnostics.EventLog]::SourceExists($ServiceName) -and $PSCmdlet.Sho
 }
 
 if ((Test-Path $InstallDir) -and $PSCmdlet.ShouldProcess($InstallDir, '刪除安裝目錄')) {
-    Remove-Item $InstallDir -Recurse -Force
+    Remove-TreeWithoutFollowingLinks -Path $InstallDir
     Write-Host "已刪除 $InstallDir"
 }
 
@@ -60,7 +83,7 @@ if (($entries -join ';') -ne $machinePath -and $PSCmdlet.ShouldProcess('系統 P
 
 if ($RemoveData) {
     if ((Test-Path $DataDir) -and $PSCmdlet.ShouldProcess($DataDir, '刪除資料庫與設定檔')) {
-        Remove-Item $DataDir -Recurse -Force
+        Remove-TreeWithoutFollowingLinks -Path $DataDir
         Write-Host "已刪除 $DataDir"
     }
 } else {
