@@ -378,6 +378,8 @@ SHA-256 指紋  BA105CE02BAC76888ECEE47CD4EB7941653E9AC993B61B2EB3DCC82014D21B4F
 | 服務排程（立即執行、不重疊、停止） | `Service/CheckWorkerTests.cs` | #1 #15 |
 | CLI 輸出與 JSON | `Cli/CliTests.cs`、`Cli/TextTableTests.cs` | #2 #12 |
 
+實機安裝為服務的驗收輸出（#1、#14、#15）記錄在 [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md)。CI 每次執行都會在 Actions 的 Summary 頁面列出測試通過數。
+
 ### 測試憑證怎麼產生
 
 測試憑證**全部在執行時動態產生**，Repo 中沒有任何憑證或私鑰檔（見 `tests/CertSentinel.Tests/Tls/TestCertificates.cs`）：

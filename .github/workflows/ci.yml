@@ -25,11 +25,26 @@ jobs:
         run: dotnet build CertSentinel.sln -c Release --no-restore
 
       - name: Test
-        run: dotnet test CertSentinel.sln -c Release --no-build --logger "trx;LogFileName=test-results.trx"
+        run: dotnet test CertSentinel.sln -c Release --no-build --results-directory TestResults --logger "trx;LogFilePrefix=results" --logger "console;verbosity=normal"
+
+      - name: Test summary
+        if: always()
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem TestResults -Filter *.trx -ErrorAction SilentlyContinue
+          $lines = @('## 測試結果', '', '| 測試專案 | 總數 | 通過 | 失敗 | 略過 |', '|---|---:|---:|---:|---:|')
+          foreach ($file in $files) {
+            [xml]$trx = Get-Content $file.FullName
+            $c = $trx.TestRun.ResultSummary.Counters
+            $project = ($trx.TestRun.TestDefinitions.UnitTest | Select-Object -First 1).TestMethod.codeBase | Split-Path -Leaf
+            $lines += "| $project | $($c.total) | $($c.passed) | $($c.failed) | $([int]$c.total - [int]$c.executed) |"
+          }
+          if (-not $files) { $lines += '| (沒有產生測試結果) | - | - | - | - |' }
+          $lines -join "`n" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v5
         with:
           name: test-results
-          path: '**/TestResults/*.trx'
+          path: TestResults/*.trx

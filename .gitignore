@@ -485,3 +485,4 @@ $RECYCLE.BIN/
 
 # 發佈輸出
 artifacts/
+TestResults/
