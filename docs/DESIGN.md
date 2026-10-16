@@ -116,7 +116,7 @@ days ≤ WarningDays(30)     → Warning
 無法完成檢查                 → Error
 ```
 
-邊界(單元測試皆涵蓋):剛好 30 天 → Warning;30 天又 1 秒 → OK;剛好 7 天 → Critical;剩 23 小時 → Critical(days = 0);剛好到期時刻 → Expired。
+邊界(單元測試皆涵蓋):剛好 30 天 → Warning;31 天差 1 秒(向下取整為 30)→ Warning;剛好 31 天 → OK;剛好 7 天 → Critical;剩 23 小時 → Critical(days = 0);剛好到期時刻 → Expired。
 名稱不符 / 不受信任 **不改變**分級,只記錄並寫入通知內文。
 
 ### 2.6 通知規則(NotificationPolicy)— 核心設計
