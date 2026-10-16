@@ -148,14 +148,16 @@ public sealed class SqliteCheckStore(SqliteDatabase database) : ICheckStore
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         // 只動歷史表;每個目標最新一筆永遠保留,notification_state 不受影響。
+        // 逐列判斷「是否有同目標更新的紀錄」:不可改用 NOT IN 子查詢,
+        // 從未檢查過的目標會讓子查詢產生 NULL,使 NOT IN 恆為 NULL 而一筆都不刪。
         command.CommandText = """
             DELETE FROM check_results
             WHERE checked_utc < @cutoff
-              AND id NOT IN (
-                  SELECT (SELECT id FROM check_results latest
-                          WHERE latest.target_id = t.id
-                          ORDER BY latest.checked_utc DESC, latest.id DESC LIMIT 1)
-                  FROM targets t);
+              AND EXISTS (
+                  SELECT 1 FROM check_results newer
+                  WHERE newer.target_id = check_results.target_id
+                    AND (newer.checked_utc > check_results.checked_utc
+                         OR (newer.checked_utc = check_results.checked_utc AND newer.id > check_results.id)));
             """;
         command.With("@cutoff", SqliteValues.ToDb(cutoffUtc));
         var deleted = await command.ExecuteNonQueryAsync(cancellationToken);

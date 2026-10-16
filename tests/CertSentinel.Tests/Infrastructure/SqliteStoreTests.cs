@@ -196,6 +196,30 @@ public sealed class SqliteStoreTests : IAsyncLifetime
         Assert.Equal(2, (await _targets.ListAsync()).Count);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task 保留清理_存在從未檢查過的目標時_仍刪除過期歷史(bool neverCheckedEnabled)
+    {
+        var active = (await _targets.AddAsync(Example, null, T0)).Target;
+        var neverChecked = new TargetAddress("new.example", 443);
+        await _targets.AddAsync(neverChecked, null, T0);
+        await _targets.SetEnabledAsync(neverChecked, neverCheckedEnabled);
+        var state = new NotificationState(0, CertificateStatus.Warning, T0.AddDays(2));
+        for (var i = 0; i < 3; i++)
+        {
+            await _checks.AddResultAsync(Ok(active.Id, T0.AddDays(i)), state);
+        }
+
+        var deleted = await _checks.PurgeHistoryAsync(T0.AddDays(10));
+
+        Assert.Equal(2, deleted);
+        var left = Assert.Single(await _checks.GetHistoryAsync(active.Id, DateTimeOffset.MinValue));
+        Assert.Equal(T0.AddDays(2), left.CheckedUtc);
+        Assert.Equal(state, await _checks.GetNotificationStateAsync(active.Id));
+        Assert.Equal(2, (await _targets.ListAsync()).Count);
+    }
+
     [Fact]
     public async Task 初始化可重複執行_且資料庫為WAL模式()
     {
