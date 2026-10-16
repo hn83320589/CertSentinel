@@ -363,7 +363,7 @@ SHA-256 指紋  BA105CE02BAC76888ECEE47CD4EB7941653E9AC993B61B2EB3DCC82014D21B4F
 
 ## 測試與測試憑證
 
-`tests/CertSentinel.Tests`（xUnit），共 170 多個案例：
+`tests/CertSentinel.Tests`（xUnit），共 197 個案例：
 
 | 範圍 | 檔案 | 對應驗收 |
 |---|---|---|
