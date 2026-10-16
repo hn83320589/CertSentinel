@@ -7,4 +7,7 @@
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CertSentinel.Tests" />
+  </ItemGroup>
 </Project>

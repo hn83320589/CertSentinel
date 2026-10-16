@@ -23,7 +23,7 @@ public sealed class SmtpEmailSender(SmtpSettings settings) : IEmailSender
         mime.Subject = message.Subject;
         mime.Body = new TextPart("plain") { Text = message.Body };
 
-        using var client = new SmtpClient { Timeout = settings.TimeoutSeconds * 1000 };
+        using var client = CreateClient(settings);
         await client.ConnectAsync(settings.Host, settings.Port, ToSocketOptions(settings.Security), cancellationToken);
         if (!string.IsNullOrEmpty(settings.UserName))
         {
@@ -33,6 +33,17 @@ public sealed class SmtpEmailSender(SmtpSettings settings) : IEmailSender
         await client.SendAsync(mime, cancellationToken);
         await client.DisconnectAsync(quit: true, cancellationToken);
     }
+
+    /// <summary>
+    /// MailKit 預設會在 TLS 連線時查詢 SMTP 憑證的 CRL/OCSP,等於連到 SMTP 伺服器以外的外部服務,
+    /// 違反「除目標與 SMTP 外不得呼叫外部網路」,在無法對外的內網中也會讓每封信寄送失敗,因此關閉。
+    /// 憑證的鏈與名稱驗證仍照常進行。
+    /// </summary>
+    internal static SmtpClient CreateClient(SmtpSettings settings) => new()
+    {
+        Timeout = settings.TimeoutSeconds * 1000,
+        CheckCertificateRevocation = false,
+    };
 
     private static SecureSocketOptions ToSocketOptions(SmtpSecurity security) => security switch
     {

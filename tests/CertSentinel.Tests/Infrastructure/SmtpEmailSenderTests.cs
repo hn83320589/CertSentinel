@@ -100,6 +100,21 @@ public sealed class SmtpEmailSenderTests
         Assert.Equal("certsentinel@example.test", message.From.Mailboxes.Single().Address);
     }
 
+    [Theory]
+    [InlineData(SmtpSecurity.None)]
+    [InlineData(SmtpSecurity.StartTls)]
+    [InlineData(SmtpSecurity.SslOnConnect)]
+    public void 不檢查SMTP憑證撤銷狀態_避免連到CRL與OCSP等外部服務(SmtpSecurity security)
+    {
+        var settings = Settings(587);
+        settings.Security = security;
+
+        using var client = SmtpEmailSender.CreateClient(settings);
+
+        Assert.False(client.CheckCertificateRevocation);
+        Assert.Equal(30_000, client.Timeout);
+    }
+
     [Fact]
     public async Task SMTP伺服器無法連線_丟出例外讓呼叫端判定未送出()
     {
