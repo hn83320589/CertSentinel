@@ -65,7 +65,7 @@ Get-Service CertSentinel
 |---|---|
 | 發佈 | `dotnet publish` 服務與 CLI 到同一資料夾（`-FrameworkDependent` 可改為依賴已安裝的 .NET 9 Runtime） |
 | 安裝 | 複製到 `C:\Program Files\CertSentinel` |
-| 資料夾 | 建立 `%ProgramData%\CertSentinel` 並**關閉權限繼承**，只允許 SYSTEM、Administrators（完全控制）與 LocalService（修改）存取 |
+| 資料夾 | 建立 `%ProgramData%\CertSentinel` 並**關閉權限繼承**，只允許 SYSTEM、Administrators（完全控制）與 LocalService（修改）存取。資料夾若已存在，但不是本腳本建立的安全狀態（擁有者不對、繼承未關閉、有多餘權限、含 junction 或 symlink），會**中止安裝**並請管理員檢查，不沿用來源不明的內容 |
 | 設定檔 | 首次安裝時把 `appsettings.sample.json` 複製為 `%ProgramData%\CertSentinel\appsettings.json`；升級時不會覆蓋 |
 | 事件來源 | 在「Windows 記錄 → 應用程式」註冊來源 `CertSentinel` |
 | 服務 | 帳號 `NT AUTHORITY\LocalService`、延遲自動啟動、失敗後 1 分鐘自動重啟 |
