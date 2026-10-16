@@ -14,3 +14,6 @@ indent_size = 2
 csharp_style_namespace_declarations = file_scoped:warning
 csharp_style_var_for_built_in_types = true
 dotnet_sort_system_directives_first = true
+
+# 本專案為應用程式(服務 / CLI),沒有 SynchronizationContext,不需要 ConfigureAwait(false)。
+dotnet_diagnostic.CA2007.severity = none
