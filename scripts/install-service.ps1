@@ -85,23 +85,51 @@ Write-Host "複製檔案到 $InstallDir ..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Copy-Item -Path (Join-Path $PublishDir '*') -Destination $InstallDir -Recurse -Force
 
-# 3. 資料夾與權限:關閉繼承,避免一般使用者放入假的設定檔或竄改資料庫。
-#    %ProgramData% 預設允許一般使用者建立資料夾,因此資料夾若事先存在,必須拒絕連結並奪回擁有權
-#    (擁有者即使不在 ACL 中仍可修改權限)。
-if (Test-Path -LiteralPath $DataDir) {
-    $reparse = @(Get-Item -LiteralPath $DataDir -Force) + @(Get-ChildItem -LiteralPath $DataDir -Recurse -Force -Attributes ReparsePoint -ErrorAction SilentlyContinue)
-    $links = $reparse | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }
-    if ($links) {
-        throw "$DataDir 含有連結(junction/symlink):$($links.FullName -join ', ')。為安全起見停止安裝,請確認後手動移除。"
+# 3. 資料夾與權限。%ProgramData% 預設允許一般使用者建立資料夾與檔案,因此:
+#    - 新建立時:立即關閉繼承並限制權限,接著確認資料夾仍為空(建立與上鎖之間若有人寫入內容就中止)。
+#    - 已存在時:只接受先前由本腳本建立的狀態(見 Assert-TrustedDataDir),否則中止並請管理員檢查,
+#      絕不沿用或修改來源不明的內容(例如被預先放入的設定檔、資料庫或連結)。
+function Assert-TrustedDataDir {
+    param([Parameter(Mandatory)] [string] $Path)
+
+    $item = Get-Item -LiteralPath $Path -Force
+    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+        throw "$Path 是連結(junction/symlink),為安全起見停止安裝。"
     }
-} else {
-    New-Item -ItemType Directory -Path $DataDir | Out-Null
+
+    $acl = Get-Acl -LiteralPath $Path
+    $owner = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+    $trusted = @($SystemSid, $AdministratorsSid, $LocalServiceSid) | ForEach-Object { $_.TrimStart('*') }
+    $untrusted = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) |
+        Where-Object { $_.AccessControlType -eq 'Allow' -and $trusted -notcontains $_.IdentityReference.Value })
+    if ($owner -notin $trusted[0..1] -or -not $acl.AreAccessRulesProtected -or $untrusted.Count -gt 0) {
+        throw ("$Path 已存在,但不是由本安裝腳本建立的安全狀態(擁有者 $owner、繼承" +
+            $(if ($acl.AreAccessRulesProtected) { '已關閉' } else { '未關閉' }) +
+            ",其他可存取者 $($untrusted.Count) 個)。請檢查其中內容,確認無誤後刪除或備份該資料夾再重新安裝。")
+    }
+
+    # -ErrorAction Stop:無法列舉時視為不安全(fail closed)。
+    $links = @(Get-ChildItem -LiteralPath $Path -Recurse -Force -Attributes ReparsePoint -ErrorAction Stop)
+    if ($links.Count -gt 0) {
+        throw "$Path 含有連結(junction/symlink):$($links.FullName -join ', ')。為安全起見停止安裝。"
+    }
 }
-Invoke-Native icacls @($DataDir, '/setowner', $AdministratorsSid, '/T', '/C', '/Q')
-Invoke-Native icacls @($DataDir, '/reset', '/T', '/C', '/Q')
-Invoke-Native icacls @($DataDir, '/inheritance:r', '/grant:r',
-    "${SystemSid}:(OI)(CI)F", "${AdministratorsSid}:(OI)(CI)F", "${LocalServiceSid}:(OI)(CI)M", '/C', '/Q')
-Write-Host "已設定 $DataDir 權限(擁有者 Administrators;SYSTEM、Administrators 完全控制;LocalService 修改)"
+
+if (Test-Path -LiteralPath $DataDir) {
+    Assert-TrustedDataDir -Path $DataDir
+    Write-Host "沿用既有資料夾 $DataDir(權限檢查通過)"
+} else {
+    New-Item -ItemType Directory -Path $DataDir | Out-Null   # 已存在(被搶先建立)時會丟出例外
+    Invoke-Native icacls @($DataDir, '/setowner', $AdministratorsSid, '/C', '/Q')
+    Invoke-Native icacls @($DataDir, '/inheritance:r', '/grant:r',
+        "${SystemSid}:(OI)(CI)F", "${AdministratorsSid}:(OI)(CI)F", "${LocalServiceSid}:(OI)(CI)M", '/C', '/Q')
+    if (@(Get-ChildItem -LiteralPath $DataDir -Force -ErrorAction Stop).Count -gt 0) {
+        throw "建立 $DataDir 期間有其他程序寫入內容,為安全起見停止安裝。請檢查並刪除該資料夾後重試。"
+    }
+
+    Assert-TrustedDataDir -Path $DataDir
+    Write-Host "已設定 $DataDir 權限(擁有者 Administrators;SYSTEM、Administrators 完全控制;LocalService 修改)"
+}
 
 # 4. 設定檔
 $configPath = Join-Path $DataDir 'appsettings.json'
