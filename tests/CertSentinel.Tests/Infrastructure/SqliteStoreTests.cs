@@ -141,6 +141,17 @@ public sealed class SqliteStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task 目標已被刪除時儲存通知進度_不寫入也不丟例外()
+    {
+        var target = (await _targets.AddAsync(Example, null, T0)).Target;
+        await _targets.RemoveAsync(Example);
+
+        await _checks.SaveNotificationStateAsync(target.Id, new NotificationState(0, CertificateStatus.Critical, T0));
+
+        Assert.Equal(NotificationState.Initial, await _checks.GetNotificationStateAsync(target.Id));
+    }
+
+    [Fact]
     public async Task 歷史依時間由新到舊_並依起始時間篩選()
     {
         var target = (await _targets.AddAsync(Example, null, T0)).Target;

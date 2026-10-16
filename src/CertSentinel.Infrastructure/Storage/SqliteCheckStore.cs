@@ -169,9 +169,11 @@ public sealed class SqliteCheckStore(SqliteDatabase database) : ICheckStore
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
+        // WHERE EXISTS:寄信後、寫入前若目標已被 CLI 刪除,直接略過而非觸發外鍵錯誤。
         command.CommandText = """
             INSERT INTO notification_state (target_id, consecutive_errors, notified_status, notified_at_utc)
-            VALUES (@id, @errors, @status, @at)
+            SELECT @id, @errors, @status, @at
+            WHERE EXISTS (SELECT 1 FROM targets WHERE id = @id)
             ON CONFLICT (target_id) DO UPDATE SET
                 consecutive_errors = excluded.consecutive_errors,
                 notified_status    = excluded.notified_status,
