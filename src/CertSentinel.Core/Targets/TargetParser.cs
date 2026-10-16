@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 namespace CertSentinel.Core.Targets;
 
@@ -15,6 +16,10 @@ public static class TargetParser
     private const int MaxHostLength = 253;
 
     private static readonly IdnMapping Idn = new() { UseStd3AsciiRules = true };
+
+    private static readonly Regex StrictIPv4 = new(
+        @"^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public static bool TryParse(
         string? input,
@@ -138,11 +143,25 @@ public static class TargetParser
 
         if (IPAddress.TryParse(rawHost, out var ip))
         {
+            // .NET 接受 10、127.1、0x7f.0.0.1 等 IPv4 簡寫並轉成其他位址(10 → 0.0.0.10),
+            // 只接受完整四段十進位,避免使用者的輸入被悄悄改成另一個目標。
+            if (ip.AddressFamily == AddressFamily.InterNetwork && !StrictIPv4.IsMatch(rawHost))
+            {
+                error = $"「{rawHost}」不是完整的 IPv4 位址:IPv4 請輸入四段十進位數字(例如 10.0.0.1)。";
+                return false;
+            }
+
             host = ip.ToString();
             return true;
         }
 
         var name = rawHost.TrimEnd('.').ToLowerInvariant();
+        if (name.Split('.')[^1] is { Length: > 0 } tld && tld.All(char.IsAsciiDigit))
+        {
+            // 頂層網域不可全為數字(RFC 3696),這類輸入多半是打錯的 IPv4 位址。
+            error = $"「{rawHost}」不是合法的主機名稱(最後一段不可全為數字),也不是完整的 IPv4 位址(例如 10.0.0.1)。";
+            return false;
+        }
         if (name.Length == 0)
         {
             error = "主機名稱不可為空白。";

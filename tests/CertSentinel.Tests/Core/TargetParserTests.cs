@@ -56,6 +56,34 @@ public class TargetParserTests
         Assert.Contains(expectedFragment, error, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("10")]
+    [InlineData("10:8443")]
+    [InlineData("127.1")]
+    [InlineData("0x7f000001")]
+    [InlineData("0x7f.0.0.1")]
+    [InlineData("010.0.0.1")]
+    [InlineData("4294967295")]
+    [InlineData("1.2.3.4.5")]
+    [InlineData("https://10/")]
+    public void IPv4簡寫或數字主機名稱_拒絕而不悄悄轉成其他位址(string input)
+    {
+        Assert.False(TargetParser.TryParse(input, out _, out var error));
+        Assert.Contains("IPv4", error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("10.0.0.1", "10.0.0.1")]
+    [InlineData("255.255.255.255", "255.255.255.255")]
+    [InlineData("0.0.0.0", "0.0.0.0")]
+    [InlineData("1password.com", "1password.com")]
+    [InlineData("123.example.com", "123.example.com")]
+    public void 完整IPv4與數字開頭的主機名稱_照常接受(string input, string host)
+    {
+        Assert.True(TargetParser.TryParse(input, out var target, out var error), error);
+        Assert.Equal(host, target.Host);
+    }
+
     [Fact]
     public void 標籤超過63字元_拒絕()
     {
