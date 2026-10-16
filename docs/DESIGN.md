@@ -4,7 +4,7 @@
 
 > **實作與草案的差異**(其餘依本文件實作):
 > - 儲存介面合併為 `ITargetRepository` 與 `ICheckStore` 兩個,因為「檢查結果 + 通知進度」需在同一交易寫入。
-> - 新增 `%ProgramData%CertSentinelppsettings.json` 覆寫設定檔(升級不被覆蓋),安裝腳本會關閉該資料夾的權限繼承並奪回擁有權。
+> - 新增 `%ProgramData%\CertSentinel\appsettings.json` 覆寫設定檔(升級不被覆蓋),安裝腳本會關閉該資料夾的權限繼承並奪回擁有權。
 > - 事件檢視器來源名稱改由 `appsettings.json` 的 `Logging:EventLog:SourceName` 設定。
 > - 服務排程抽出 `IRoundRunner`,讓「立即執行、不重疊、停止」可以用 `FakeTimeProvider` 測試。
 
