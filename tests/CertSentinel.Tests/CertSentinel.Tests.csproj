@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- 測試命名使用底線與中文描述,放寬命名相關分析規則 -->
+    <NoWarn>$(NoWarn);CA1707;CA2007;CA1515;CA1861</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CertSentinel.Core\CertSentinel.Core.csproj" />
+    <ProjectReference Include="..\..\src\CertSentinel.Infrastructure\CertSentinel.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\CertSentinel.Cli\CertSentinel.Cli.csproj" />
+    <ProjectReference Include="..\..\src\CertSentinel.Service\CertSentinel.Service.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>
