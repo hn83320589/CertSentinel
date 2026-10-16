@@ -17,8 +17,18 @@ builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddWindowsService(options => options.ServiceName = ServiceName);
 builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(5));
 
-// 日誌寫入 Windows 事件檢視器(應用程式記錄,來源 CertSentinel):來源名稱設定於 appsettings.json 的 Logging:EventLog,
-// 事件來源由 install-service.ps1 註冊。
+// 日誌寫入 Windows 事件檢視器(應用程式記錄,來源 CertSentinel;事件來源由 install-service.ps1 註冊)。
+// EventLogSettings 不會從設定檔繫結,必須在程式碼中指定;否則服務模式下來源會變成未註冊的程式名稱而寫不進去。
+if (OperatingSystem.IsWindows())
+{
+#pragma warning disable CA1416 // 已由 OperatingSystem.IsWindows() 保護,分析器無法追蹤到 lambda 內。
+    builder.Services.Configure<Microsoft.Extensions.Logging.EventLog.EventLogSettings>(options =>
+    {
+        options.SourceName = ServiceName;
+        options.LogName = "Application";
+    });
+#pragma warning restore CA1416
+}
 
 var settings = CertSentinelSettings.Bind(builder.Configuration);
 
