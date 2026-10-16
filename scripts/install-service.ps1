@@ -1,4 +1,4 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
     建置並安裝 CertSentinel Windows 服務與 certsentinel 命令列工具。
