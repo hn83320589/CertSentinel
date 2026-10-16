@@ -33,7 +33,8 @@ if (OperatingSystem.IsWindows())
 var settings = CertSentinelSettings.Bind(builder.Configuration);
 
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton(new SqliteDatabase(settings.DatabasePath));
+// 以 factory 延後建立:設定錯誤(例如 DatabasePath 空白)時,先由下方的設定驗證輸出友善訊息,而不是在註冊時就丟例外。
+builder.Services.AddSingleton(_ => new SqliteDatabase(settings.DatabasePath));
 builder.Services.AddSingleton<ITargetRepository, SqliteTargetRepository>();
 builder.Services.AddSingleton<ICheckStore, SqliteCheckStore>();
 builder.Services.AddSingleton<ICertificateProbe>(new TlsCertificateProbe(new DnsEndpointResolver(), new TlsProbeOptions()));
