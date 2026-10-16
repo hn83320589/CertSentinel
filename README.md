@@ -273,7 +273,7 @@ SHA-256 指紋  BA105CE02BAC76888ECEE47CD4EB7941653E9AC993B61B2EB3DCC82014D21B4F
 | 回到 OK（例如換了新憑證） | 「已恢復 OK」一封 |
 | 通知過無法檢查後，恢復檢查但狀態不是 OK | 「狀態通知」一封 |
 | 狀態沒有變化 | 不寄 |
-| Critical、Expired、Error 持續 | 距上次寄出每滿 24 小時提醒一次 |
+| Critical、Expired、Error 持續 | 距上次寄出每滿 24 小時提醒一次（`ReminderIntervalHours`）。時間以「該輪開始時間」計算，不受各輪探測耗時影響，並有 1 分鐘容差吸收排程誤差，所以提醒不會因為差幾秒而順延一整輪 |
 | 改善但未回到 OK（例如 Critical → Warning） | 不寄，之後不再以 Critical 提醒；若再惡化會重新通知 |
 | 新目標首次檢查為 OK | 不寄，只建立基準 |
 

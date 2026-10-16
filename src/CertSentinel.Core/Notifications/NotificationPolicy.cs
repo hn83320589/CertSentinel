@@ -22,6 +22,11 @@ public enum NotificationKind
 
 public sealed record NotificationRules(int ErrorThreshold, TimeSpan ReminderInterval)
 {
+    /// <summary>
+    /// 提醒判斷的容差:各輪開始時間會有排程誤差(毫秒級),差幾秒未滿間隔不應讓提醒順延一整輪。
+    /// </summary>
+    public TimeSpan ReminderTolerance { get; init; } = TimeSpan.FromMinutes(1);
+
     public static NotificationRules Default { get; } = new(3, TimeSpan.FromHours(24));
 }
 
@@ -103,7 +108,7 @@ public sealed class NotificationPolicy(NotificationRules rules)
     private bool IsReminderDue(NotificationState state, CertificateStatus status, DateTimeOffset nowUtc) =>
         status is CertificateStatus.Critical or CertificateStatus.Expired or CertificateStatus.Error
         && state.NotifiedAtUtc is { } last
-        && nowUtc - last >= rules.ReminderInterval;
+        && nowUtc - last >= rules.ReminderInterval - rules.ReminderTolerance;
 
     private static NotificationDecision NoSend(NotificationState state) => new(null, state, state);
 }

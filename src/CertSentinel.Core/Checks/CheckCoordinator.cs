@@ -33,6 +33,8 @@ public sealed partial class CheckCoordinator(
 
     public async Task<RoundSummary> RunRoundAsync(CancellationToken cancellationToken)
     {
+        // 通知以「該輪開始時間」判斷,避免各輪探測耗時不同(數百毫秒到 10 秒逾時)讓 24 小時提醒順延一整輪。
+        var roundStartedUtc = timeProvider.GetUtcNow();
         var enabled = (await targets.ListAsync(cancellationToken)).Where(t => t.Enabled).ToList();
         LogRoundStarted(enabled.Count);
 
@@ -44,7 +46,7 @@ public sealed partial class CheckCoordinator(
             new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, options.MaxConcurrency), CancellationToken = cancellationToken },
             async (target, ct) =>
             {
-                var outcome = await ProcessTargetAsync(target, ct);
+                var outcome = await ProcessTargetAsync(target, roundStartedUtc, ct);
                 if (outcome.IsError)
                 {
                     Interlocked.Increment(ref errors);
@@ -85,14 +87,14 @@ public sealed partial class CheckCoordinator(
         return deleted;
     }
 
-    private async Task<TargetOutcome> ProcessTargetAsync(MonitoredTarget target, CancellationToken cancellationToken)
+    private async Task<TargetOutcome> ProcessTargetAsync(MonitoredTarget target, DateTimeOffset roundStartedUtc, CancellationToken cancellationToken)
     {
         var address = target.Address.ToString();
         try
         {
             var record = await CheckAsync(target, CheckSource.Service, cancellationToken);
             var state = await store.GetNotificationStateAsync(target.Id, cancellationToken);
-            var decision = _policy.Evaluate(state, record.Status, record.CheckedUtc);
+            var decision = _policy.Evaluate(state, record.Status, roundStartedUtc);
 
             if (!await store.AddResultAsync(record, decision.StateWithoutSend, cancellationToken))
             {
@@ -107,7 +109,7 @@ public sealed partial class CheckCoordinator(
                 return new TargetOutcome(isError, NotificationResult.None);
             }
 
-            var message = NotificationComposer.Compose(kind, target, record, decision.StateWithoutSend.ConsecutiveErrors, timeProvider.LocalTimeZone);
+            var message = NotificationComposer.Compose(kind, target, record, decision.StateWithoutSend.ConsecutiveErrors, options.Rules.ReminderInterval, timeProvider.LocalTimeZone);
             var result = await SendAsync(target, kind, message, decision.StateAfterSent, cancellationToken);
             return new TargetOutcome(isError, result);
         }

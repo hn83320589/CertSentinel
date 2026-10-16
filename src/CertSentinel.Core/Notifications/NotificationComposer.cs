@@ -13,6 +13,7 @@ public static class NotificationComposer
         MonitoredTarget target,
         CheckRecord record,
         int consecutiveErrors,
+        TimeSpan reminderInterval,
         TimeZoneInfo localTimeZone)
     {
         ArgumentNullException.ThrowIfNull(target);
@@ -22,7 +23,7 @@ public static class NotificationComposer
         var subject = $"[CertSentinel] {Headline(kind, record)} — {target.Address}{RemainingSuffix(record)}";
 
         var body = new StringBuilder();
-        Line(body, "通知類型", KindLabel(kind));
+        Line(body, "通知類型", KindLabel(kind, reminderInterval));
         Line(body, "目標名稱", target.Name);
         Line(body, "主機與埠號", target.Address.ToString());
         Line(body, "目前狀態", record.Status.ToString());
@@ -68,13 +69,13 @@ public static class NotificationComposer
     private static string StatusLabel(CertificateStatus status) =>
         status == CertificateStatus.Error ? "無法檢查" : status.ToString();
 
-    private static string KindLabel(NotificationKind kind) => kind switch
+    private static string KindLabel(NotificationKind kind, TimeSpan reminderInterval) => kind switch
     {
         NotificationKind.Deteriorated => "狀態惡化",
         NotificationKind.Unreachable => "連續無法檢查",
         NotificationKind.StatusAfterError => "恢復檢查(狀態非 OK)",
         NotificationKind.Recovered => "恢復 OK",
-        NotificationKind.Reminder => "持續狀態提醒(每 24 小時)",
+        NotificationKind.Reminder => string.Create(CultureInfo.InvariantCulture, $"持續狀態提醒(每 {reminderInterval.TotalHours:0.##} 小時)"),
         _ => kind.ToString(),
     };
 

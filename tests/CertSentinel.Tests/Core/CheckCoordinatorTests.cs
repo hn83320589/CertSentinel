@@ -22,7 +22,7 @@ public sealed class CheckCoordinatorTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _db.DisposeAsync();
 
-    private CheckCoordinator CreateCoordinator(SqliteDatabase? database = null, int maxConcurrency = 4)
+    private CheckCoordinator CreateCoordinator(SqliteDatabase? database = null, int maxConcurrency = 4, NotificationRules? rules = null)
     {
         var db = database ?? _db.Database;
         return new CheckCoordinator(
@@ -34,7 +34,7 @@ public sealed class CheckCoordinatorTests : IAsyncLifetime
             new CheckOptions
             {
                 Thresholds = new StatusThresholds(30, 7),
-                Rules = NotificationRules.Default,
+                Rules = rules ?? NotificationRules.Default,
                 MaxConcurrency = maxConcurrency,
             },
             NullLogger<CheckCoordinator>.Instance);
@@ -207,6 +207,44 @@ public sealed class CheckCoordinatorTests : IAsyncLifetime
 
         Assert.Equal(2, _email.Sent.Count);
         Assert.Contains("提醒", _email.Sent[1].Subject, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task 探測耗時每輪不同_提醒仍在滿24小時的那一輪寄出_不順延()
+    {
+        // 每 6 小時一輪;第一輪探測耗時 10 秒(例如逾時),之後只要 0.2 秒。
+        // 若以「探測完成時間」比較,第 5 輪會差 9.8 秒未滿 24 小時而順延到 30 小時。
+        await AddTargetAsync("shop.example");
+        _probe.SetExpiry("shop.example", Start.AddDays(6));
+        var probeDurations = new Queue<TimeSpan>([TimeSpan.FromSeconds(10), .. Enumerable.Repeat(TimeSpan.FromMilliseconds(200), 5)]);
+        _probe.OnProbe = _ => _time.Advance(probeDurations.Dequeue());
+        var coordinator = CreateCoordinator();
+        var roundStart = Start;
+
+        for (var round = 1; round <= 5; round++)
+        {
+            _time.SetUtcNow(roundStart);
+            await coordinator.RunRoundAsync(CancellationToken.None);
+            roundStart += TimeSpan.FromHours(6);
+        }
+
+        Assert.Equal(2, _email.Sent.Count);
+        Assert.Contains("提醒", _email.Sent[1].Subject, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task 提醒信內文使用設定的提醒間隔()
+    {
+        await AddTargetAsync("shop.example");
+        _probe.SetExpiry("shop.example", Start.AddDays(6));
+        var coordinator = CreateCoordinator(rules: new NotificationRules(3, TimeSpan.FromHours(12)));
+
+        await coordinator.RunRoundAsync(CancellationToken.None);
+        _time.Advance(TimeSpan.FromHours(12));
+        await coordinator.RunRoundAsync(CancellationToken.None);
+
+        Assert.Contains("每 12 小時", _email.Sent[1].Body, StringComparison.Ordinal);
+        Assert.DoesNotContain("24", _email.Sent[1].Body.Split('\n').Single(l => l.StartsWith("通知類型", StringComparison.Ordinal)), StringComparison.Ordinal);
     }
 
     [Fact]

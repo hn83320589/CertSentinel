@@ -165,11 +165,31 @@ public class NotificationPolicyTests
         var sim = Start(status);
 
         Assert.Null(sim.Round(status, T0.AddHours(12)));
-        Assert.Null(sim.Round(status, T0.AddHours(24).AddSeconds(-1)));
+        Assert.Null(sim.Round(status, T0.AddHours(24).AddMinutes(-2)));
         Assert.Equal(NotificationKind.Reminder, sim.Round(status, T0.AddHours(24)));
         Assert.Null(sim.Round(status, T0.AddHours(30)));
         Assert.Null(sim.Round(status, T0.AddHours(47)));
         Assert.Equal(NotificationKind.Reminder, sim.Round(status, T0.AddHours(48)));
+    }
+
+    [Theory]
+    [InlineData(-59)]
+    [InlineData(-3)]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void 提醒時間在24小時上下幾秒的抖動內_仍於該輪提醒_不順延(int jitterSeconds)
+    {
+        var sim = Start(Critical);
+
+        Assert.Equal(NotificationKind.Reminder, sim.Round(Critical, T0.AddHours(24).AddSeconds(jitterSeconds)));
+    }
+
+    [Fact]
+    public void 超出容差_未滿間隔不提醒()
+    {
+        var sim = Start(Critical);
+
+        Assert.Null(sim.Round(Critical, T0.AddHours(24).AddSeconds(-61)));
     }
 
     [Fact]

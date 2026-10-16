@@ -15,6 +15,9 @@ internal sealed class FakeProbe : ICertificateProbe
 
     public TimeSpan Delay { get; set; } = TimeSpan.Zero;
 
+    /// <summary>每次探測時呼叫(例如推進假時間,模擬探測耗時)。</summary>
+    public Action<TargetAddress>? OnProbe { get; set; }
+
     public int MaxConcurrency => _max;
 
     public void Set(string host, ProbeResult result) => _results[host] = () => result;
@@ -43,6 +46,7 @@ internal sealed class FakeProbe : ICertificateProbe
                 await Task.Delay(Delay, cancellationToken);
             }
 
+            OnProbe?.Invoke(target);
             return _results.TryGetValue(target.Host, out var result)
                 ? result()
                 : throw new InvalidOperationException($"FakeProbe 沒有設定 {target.Host}");
