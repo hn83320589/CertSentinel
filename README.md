@@ -1,6 +1,6 @@
 # CertSentinel 憑證哨兵
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/hn83320589/CertSentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/hn83320589/CertSentinel/actions/workflows/ci.yml)
 
 常駐在 Windows 伺服器上的 SSL/TLS 憑證到期監控服務。定期檢查監控清單中每個網站的憑證，快到期、已過期或連不上時寄信通知，並提供 `certsentinel` 命令列工具管理清單、查詢狀態與歷史。
 
@@ -419,4 +419,3 @@ SHA-256 指紋  BA105CE02BAC76888ECEE47CD4EB7941653E9AC993B61B2EB3DCC82014D21B4F
 - CLI 需以系統管理員身分執行（資料夾權限的刻意限制）。
 - 服務只支援單一執行個體。
 - SMTP 密碼若寫在設定檔中為明文，建議改用系統環境變數。
-- `OWNER/REPO` 徽章需替換為實際的 GitHub 路徑。
